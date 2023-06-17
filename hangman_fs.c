@@ -91,7 +91,15 @@ int fs_open(const char *path, struct fuse_file_info *fi) {
   if ((fi->flags & O_TRUNC) == O_TRUNC) {
 
     // - your task -
-
+      if (strcmp(path + 1, "solution") == 0){
+          memset(solution, 0, sizeof (solution));
+      }
+      if (strcmp(path + 1, "guesses") == 0){
+          memset(guesses, 0, sizeof (guesses));
+      }
+      if (strcmp(path + 1, "player") == 0){
+          memset(player, 0, sizeof (player));
+      }
   }
   // Allow open for known files
   if ((strcmp(path + 1, "player") == 0)
@@ -175,19 +183,51 @@ int fs_truncate(const char *path, off_t size, struct fuse_file_info *fi)
 {
   printf("Trying to truncate [%s] to size %lu\n", path, size);
 
+  if (strcmp(path + 1, "status") == 0)
+      if ((fi->flags & O_ACCMODE) != O_RDONLY)
+            return -EACCES;
+
   // - your task -
   // Note: when increasing the file size, the file gets extended with null bytes
 
-  return -ENOTSUP;
+  if ((fi->flags & O_TRUNC) == O_TRUNC) {
+
+      if (strcmp(path + 1, "solution") == 0) {
+          // Truncate the "solution" file
+          if (size > sizeof(solution))
+              size = sizeof(solution);
+          memset(solution + size, 0, sizeof(solution) - size);
+      } if (strcmp(path + 1, "player") == 0) {
+          // Truncate the "solution" file
+          if (size > sizeof(solution))
+              size = sizeof(solution);
+          memset(solution + size, 0, sizeof(solution) - size);
+      }
+      else if (strcmp(path + 1, "guesses") == 0) {
+          memset(guesses, 0, sizeof(guesses));
+
+      } else if (strcmp(path + 1, "solution") == 0) {
+          // Truncate the "status" file
+          if (size > sizeof(status))
+              size = sizeof(status);
+          memset(status + size, 0, sizeof(status) - size);
+          solution_size = size;
+      } else {
+          return -ENOTSUP; // Truncation not supported for other files
+      }
+
+      return 0;
+  }
+
 }
 
 
 const struct fuse_operations fs_operations = {
   .getattr = fs_getattr, .readdir = fs_readdir,
-  //    .open           = fs_open,
+  .open           = fs_open,
   .read           = fs_read,
   .write          = fs_write,
-  //    .truncate       = fs_truncate,
+  .truncate       = fs_truncate,
 };
 
 int main(int argc, char *argv[]) {
