@@ -107,9 +107,34 @@ int fs_open(const char *path, struct fuse_file_info *fi) {
 int fs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
   printf("Trying to read [%s], offset %lu, size %lu\n", path, offset, size);
 
-  // - your task -
-  return 0;
+  size_t maxlen;
+  char *file_data;
 
+  // Get size of file depending on requested filename
+  if (strcmp(path + 1, "player") == 0) {
+        maxlen = sizeof(player);
+        file_data = player;
+  } else if (strcmp(path + 1, "solution") == 0) {
+        maxlen = sizeof(solution);
+        file_data = solution;
+  } else if (strcmp(path + 1, "guesses") == 0) {
+        maxlen = sizeof(guesses);
+        file_data = guesses;
+  } else if (strcmp(path + 1, "status") == 0) {
+      maxlen = sizeof(status);
+      file_data = status;
+  }
+  else
+      return -ENOTSUP;
+  // read requested data within limits of allocated memory
+  if (offset < maxlen) {
+      if (offset + size > maxlen)
+          size = maxlen - offset;
+      memcpy(buf, file_data + offset, size);
+  } else
+      size = 0;
+
+  return size;
 }
 
 
@@ -160,8 +185,8 @@ int fs_truncate(const char *path, off_t size, struct fuse_file_info *fi)
 const struct fuse_operations fs_operations = {
   .getattr = fs_getattr, .readdir = fs_readdir,
   //    .open           = fs_open,
-  //    .read           = fs_read,
-  //    .write          = fs_write,
+  .read           = fs_read,
+  .write          = fs_write,
   //    .truncate       = fs_truncate,
 };
 
