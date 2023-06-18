@@ -130,10 +130,27 @@ int fs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_
         file_data = guesses;
   } else if (strcmp(path + 1, "status") == 0) {
       maxlen = sizeof(status);
+
+      if(guesses[0] == '\0'){
+          for(int i = 0; i < solution_size; i++){
+              status[i] = '-';
+          }
+      } else {
+          for(int i = 0; i < solution_size - 1; i++){
+              for(int j = 0; j < guesses_size - 1; j++){
+                  if(solution[i] == guesses[j]){
+                      status[i] = solution[i];
+                  }
+              }
+          }
+      }
+
       file_data = status;
+
   }
   else
       return -ENOTSUP;
+
   // read requested data within limits of allocated memory
   if (offset < maxlen) {
       if (offset + size > maxlen)
@@ -190,35 +207,30 @@ int fs_truncate(const char *path, off_t size, struct fuse_file_info *fi)
   // - your task -
   // Note: when increasing the file size, the file gets extended with null bytes
 
-  if ((fi->flags & O_TRUNC) == O_TRUNC) {
 
       if (strcmp(path + 1, "solution") == 0) {
           // Truncate the "solution" file
-          if (size > sizeof(solution))
-              size = sizeof(solution);
+          if (size > solution_size)
+              size = solution_size;
           memset(solution + size, 0, sizeof(solution) - size);
-      } if (strcmp(path + 1, "player") == 0) {
-          // Truncate the "solution" file
-          if (size > sizeof(solution))
-              size = sizeof(solution);
-          memset(solution + size, 0, sizeof(solution) - size);
-      }
-      else if (strcmp(path + 1, "guesses") == 0) {
-          memset(guesses, 0, sizeof(guesses));
 
-      } else if (strcmp(path + 1, "solution") == 0) {
-          // Truncate the "status" file
-          if (size > sizeof(status))
-              size = sizeof(status);
-          memset(status + size, 0, sizeof(status) - size);
-          solution_size = size;
+      } else if (strcmp(path + 1, "player") == 0) {
+          // Truncate the "player" file
+          if (size > solution_size)
+              size = sizeof(player);
+          memset(player + size, 0, sizeof(player) - size);
+
+      } else if (strcmp(path + 1, "guesses") == 0) {
+          // Truncate the "guesses" file
+          if (size > sizeof(guesses))
+              size = sizeof(guesses);
+          memset(guesses + size, 0, sizeof(guesses) - size);
+
       } else {
           return -ENOTSUP; // Truncation not supported for other files
       }
 
-      return 0;
-  }
-
+    return 0;
 }
 
 
