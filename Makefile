@@ -1,5 +1,5 @@
 COMPILER = gcc
-FILESYSTEM_FILES = hangman_fs.c
+FILESYSTEM_FILES = hangman_fs1.c
 
 build: $(FILESYSTEM_FILES)
 	$(COMPILER) $(FILESYSTEM_FILES) -Wall -o hangman_fs `pkg-config fuse3 --cflags --libs`

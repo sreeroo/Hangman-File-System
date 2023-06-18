@@ -82,85 +82,104 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
 
 
 int fs_open(const char *path, struct fuse_file_info *fi) {
-  printf("Trying to open [%s] with flags [%d]\n", path, fi->flags);
-  // Check whether opening in the requested mode is allowed
-  if (strcmp(path + 1, "status") == 0)
-    if ((fi->flags & O_ACCMODE) != O_RDONLY)
-      return -EACCES;
-  // Truncate (writable) file if flag is set to do so
-  if ((fi->flags & O_TRUNC) == O_TRUNC) {
+    printf("Trying to open [%s] with flags [%d]\n", path, fi->flags);
 
-    // - your task -
-      if (strcmp(path + 1, "solution") == 0){
-          memset(solution, 0, sizeof (solution));
-      }
-      if (strcmp(path + 1, "guesses") == 0){
-          memset(guesses, 0, sizeof (guesses));
-      }
-      if (strcmp(path + 1, "player") == 0){
-          memset(player, 0, sizeof (player));
-      }
-  }
-  // Allow open for known files
-  if ((strcmp(path + 1, "player") == 0)
-     || (strcmp(path + 1, "solution") == 0)
-     || (strcmp(path + 1, "status") == 0)
-     || (strcmp(path + 1, "guesses") == 0)) {
-    return 0;
-  }
-  return -ENOENT;
+    ulong *file_size;
+
+    // Check whether opening in the requested mode is allowed
+    if (strcmp(path + 1, "status") == 0)
+        if ((fi->flags & O_ACCMODE) != O_RDONLY)
+            return -EACCES;
+
+    // Truncate (writable) file if flag is set to do so
+    if ((fi->flags & O_TRUNC) == O_TRUNC) {
+
+        // - your task -
+        if (strcmp(path + 1, "solution") == 0){
+            memset(solution, 0, sizeof (solution));
+            file_size = &solution_size;
+            *file_size = 0;
+
+        }
+        if (strcmp(path + 1, "guesses") == 0){
+            memset(guesses, 0, sizeof (guesses));
+            file_size = &guesses_size;
+            *file_size = 0;
+        }
+        if (strcmp(path + 1, "player") == 0){
+            memset(player, 0, sizeof (player));
+            file_size = &player_size;
+            *file_size = 0;
+        }
+
+    }
+    // Allow open for known files
+    if ((strcmp(path + 1, "player") == 0)
+        || (strcmp(path + 1, "solution") == 0)
+        || (strcmp(path + 1, "status") == 0)
+        || (strcmp(path + 1, "guesses") == 0)) {
+        return 0;
+    }
+    return -ENOENT;
 }
-
 
 int fs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
-  printf("Trying to read [%s], offset %lu, size %lu\n", path, offset, size);
+    printf("Trying to read [%s], offset %lu, size %lu\n", path, offset, size);
 
-  size_t maxlen;
-  char *file_data;
+    // - your task -
 
-  // Get size of file depending on requested filename
-  if (strcmp(path + 1, "player") == 0) {
-        maxlen = sizeof(player);
+    size_t maxlen;
+    const char *file_data;
+
+    // Get size of file and file data based on the requested filename
+    if (strcmp(path + 1, "player") == 0) {
+        maxlen = player_size;
         file_data = player;
-  } else if (strcmp(path + 1, "solution") == 0) {
-        maxlen = sizeof(solution);
+    } else if (strcmp(path + 1, "solution") == 0) {
+        maxlen = solution_size;
         file_data = solution;
-  } else if (strcmp(path + 1, "guesses") == 0) {
-        maxlen = sizeof(guesses);
+    } else if (strcmp(path + 1, "guesses") == 0) {
+        maxlen = guesses_size;
         file_data = guesses;
-  } else if (strcmp(path + 1, "status") == 0) {
-      maxlen = sizeof(status);
+    } else if (strcmp(path + 1, "status") == 0) {
+        maxlen = solution_size;
 
-      if(guesses[0] == '\0'){
-          for(int i = 0; i < solution_size; i++){
-              status[i] = '-';
-          }
-      } else {
-          for(int i = 0; i < solution_size - 1; i++){
-              for(int j = 0; j < guesses_size - 1; j++){
-                  if(solution[i] == guesses[j]){
-                      status[i] = solution[i];
-                  }
-              }
-          }
-      }
+        if (guesses[0] == '\0') {
+            for (int i = 0; i < solution_size; i++) {
+                status[i] = '-';
+            }
+        } else {
+            for (int i = 0; i < solution_size; i++) {
+                for (int j = 0; j < guesses_size; j++) {
+                    if (solution[i] == guesses[j]) {
+                        status[i] = solution[i];
+                    }
+                }
+            }
+        }
 
-      file_data = status;
+        file_data = status;
 
-  }
-  else
-      return -ENOTSUP;
+    } else {
+        return -ENOTSUP;
+    }
 
-  // read requested data within limits of allocated memory
-  if (offset < maxlen) {
-      if (offset + size > maxlen)
-          size = maxlen - offset;
-      memcpy(buf, file_data + offset, size);
-  } else
-      size = 0;
+    // Adjust the size if reading beyond the end of the file
+    if (offset >= maxlen) {
+        return 0;
+    }
 
-  return size;
+    size_t available_bytes = maxlen - offset;
+    if (size > available_bytes) {
+        size = available_bytes;
+    }
+
+    // Copy the requested data to the buffer
+    memcpy(buf, file_data + offset, size);
+
+    return size;
 }
+
 
 
 int fs_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *info) {
@@ -195,40 +214,53 @@ int fs_write(const char *path, const char *buf, size_t size, off_t offset, struc
   return size;
 }
 
+int fs_truncate(const char *path, off_t size, struct fuse_file_info *fi) {
+    printf("Trying to truncate [%s] to size %lu\n", path, size);
 
-int fs_truncate(const char *path, off_t size, struct fuse_file_info *fi)
-{
-  printf("Trying to truncate [%s] to size %lu\n", path, size);
+    // - your task -
+    // Note: when increasing the file size, the file gets extended with null bytes
+    //       when decreasing the file size, the file is truncated
 
-  if (strcmp(path + 1, "status") == 0)
-      if ((fi->flags & O_ACCMODE) != O_RDONLY)
+    if (strcmp(path + 1, "status") == 0) {
+        if ((fi->flags & O_ACCMODE) != O_RDONLY) {
             return -EACCES;
+        }
+    }
 
-  // - your task -
-  // Note: when increasing the file size, the file gets extended with null bytes
+    size_t maxlen;
+    char *file_data;
+    ulong *file_size;
 
+    // Determine the maximum length and file data based on the requested filename
+    if (strcmp(path + 1, "solution") == 0) {
+        maxlen = sizeof(solution);
+        file_data = solution;
+        file_size = &solution_size;
+    } else if (strcmp(path + 1, "player") == 0) {
+        maxlen = sizeof(player);
+        file_data = player;
+        file_size = &player_size;
+    } else if (strcmp(path + 1, "guesses") == 0) {
+        maxlen = sizeof(guesses);
+        file_data = guesses;
+        file_size = &guesses_size;
+    } else {
+        return -ENOTSUP; // Truncation not supported for other files
+    }
 
-      if (strcmp(path + 1, "solution") == 0) {
-          // Truncate the "solution" file
-          if (size > solution_size)
-              size = solution_size;
-          memset(solution + size, 0, sizeof(solution) - size);
+    // Check if the requested size exceeds the maximum length
+    if (size > maxlen) {
+        size = maxlen;
+    }
 
-      } else if (strcmp(path + 1, "player") == 0) {
-          // Truncate the "player" file
-          if (size > solution_size)
-              size = sizeof(player);
-          memset(player + size, 0, sizeof(player) - size);
+    // Truncate the file by filling the remaining space with null bytes
+        if( size > *file_size){
+            memset(file_data + *file_size, 0, size - *file_size);
+        } else {
+            memset(file_data + size, 0, maxlen - size);
+        }
 
-      } else if (strcmp(path + 1, "guesses") == 0) {
-          // Truncate the "guesses" file
-          if (size > sizeof(guesses))
-              size = sizeof(guesses);
-          memset(guesses + size, 0, sizeof(guesses) - size);
-
-      } else {
-          return -ENOTSUP; // Truncation not supported for other files
-      }
+    *file_size = size; // Update the file size
 
     return 0;
 }
